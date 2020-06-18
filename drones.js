@@ -1,22 +1,33 @@
-const IRCClient = require('./irc-client');
+#!/usr/bin/env node
 
-const useTor = true;
+const IRCClient = require('./lib/irc-client');
+const { randomItem, randomString, uid, sleep } = require('./lib/util');
+const words = require('fs').readFileSync('./words.txt').toString().trim().split(/[\r\n]+/);
 
-function onConnect(drone) {
+const settings = {
+  useTor: true,
+  connectInterval: 5000,
+  servers: ['efnet.portlane.se'],
+};
+
+async function onConnect(drone) {
   const target = '#testchan';
   drone.send(`JOIN ${target}`);
-  drone.send(`PRIVMSG ${target} :blah blah`);
+  drone.send(`PRIVMSG ${target} :${randomString(400)}`);
+  drone.send(`NICK ${randomString(8)}`);
+  await sleep(1000);
+  drone.send('QUIT :brb');
 }
 
 function createDrone() {
   const drone = new IRCClient({
-    nick: 'fooff',
-    user: 'bar',
-    name: 'baz',
-    server: 'localhost',
+    nick: randomItem(words).slice(0, 8) + randomString(1, 'abcdefghijklmnopqrstuvwxyz0123456789`_-'),
+    user: randomItem(words).slice(0, 8),
+    name: randomItem(words),
+    server: settings.servers[uid() % settings.servers.length],
     port: 6667,
     proxy: {
-      host: useTor ? 'localhost' : '',
+      host: settings.useTor ? 'localhost' : '',
       port: 9050,
       timeout: 5000,
     },
@@ -28,4 +39,4 @@ function createDrone() {
 }
 
 process.on('uncaughtException', err => console.error('!UNCAUGHT EXCEPTION', err.stack));
-createDrone();
+setInterval(createDrone, settings.connectInterval);
