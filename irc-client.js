@@ -1,7 +1,8 @@
-// Bare-bones IRC client
+// Bare-bones IRC client with proxy support
 
 const net = require('net');
 const EventEmitter = require('events');
+const { SocksClient } = require('socks');
 
 class IRCClient extends EventEmitter {
   constructor(options = {}) {
@@ -10,10 +11,33 @@ class IRCClient extends EventEmitter {
   }
 
   connect() {
-    this._initSocket(net.createConnection({
-      host: this.opt.server,
-      port: this.opt.port,
-    }, () => this._register()));
+    if (this.opt.proxy && this.opt.proxy.host && this.opt.proxy.port) {
+      SocksClient.createConnection({
+        command: 'connect',
+        timeout: this.opt.proxy.timeout || 30000,
+        proxy: {
+          host: this.opt.proxy.host,
+          port: this.opt.proxy.port,
+          type: this.opt.proxy.type || 5,
+        },
+        destination: {
+          host: this.opt.server,
+          port: this.opt.port,
+        },
+      }, (err, info) => {
+        if (err) {
+          this.emit('error', err.message);
+        } else {
+          this._initSocket(info.socket);
+          this._register();
+        }
+      });
+    } else {
+      this._initSocket(net.createConnection({
+        host: this.opt.server,
+        port: this.opt.port,
+      }, () => this._register()));
+    }
   }
 
   disconnect() {
